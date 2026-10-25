@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Tìm nhà, căn hộ và đất nền cùng Nhà Đất Mini.">
+    <title>Nhà Đất Mini</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/script.js" defer></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Nhà Đất Mini - Trang chủ">
+        <span class="brand-mark" aria-hidden="true">⌂</span>
+        <span>Nhà Đất Mini</span>
+      </a>
+      <span class="header-note">Tìm nơi bạn muốn gọi là nhà</span>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">BẤT ĐỘNG SẢN DÀNH CHO BẠN</p>
+        <h1>Tìm ngôi nhà <span>phù hợp</span> với bạn</h1>
+        <p class="hero-copy">Khám phá nhà, căn hộ và đất nền trong danh sách của chúng tôi.</p>
+      </section>
+
+      <section class="listing-section" aria-labelledby="listing-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">KHÁM PHÁ</p>
+            <h2 id="listing-title">Bất động sản nổi bật</h2>
+          </div>
+          <p id="result-count" class="result-count" aria-live="polite"></p>
+        </div>
+
+        <form id="filter-form" class="filters">
+          <label class="search-box">
+            <span class="visually-hidden">Tìm theo tên bất động sản</span>
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input id="search-input" type="search" placeholder="Tìm theo tên bất động sản...">
+          </label>
+          <label class="visually-hidden" for="type-filter">Lọc theo loại bất động sản</label>
+          <select id="type-filter">
+            <option value="">Tất cả loại</option>
+            <option value="house">Nhà</option>
+            <option value="apartment">Căn hộ</option>
+            <option value="land">Đất nền</option>
+          </select>
+          <button class="reset-button" type="reset">Xóa lọc</button>
+        </form>
+
+        <div id="property-list" class="property-grid" aria-live="polite"></div>
+        <p id="empty-state" class="empty-state" hidden>Không tìm thấy bất động sản phù hợp. Hãy thử từ khóa hoặc bộ lọc khác.</p>
+        <p id="error-state" class="error-state" hidden></p>
+      </section>
+    </main>
+
+    <dialog id="property-dialog" class="property-dialog" aria-labelledby="dialog-title">
+      <button id="dialog-close" class="dialog-close" type="button" aria-label="Đóng">×</button>
+      <img id="dialog-image" class="dialog-image" alt="">
+      <div class="dialog-content">
+        <span id="dialog-type" class="property-type"></span>
+        <h2 id="dialog-title"></h2>
+        <p id="dialog-price" class="dialog-price"></p>
+        <p id="dialog-meta" class="dialog-meta"></p>
+        <p id="dialog-address" class="dialog-address"></p>
+        <p id="dialog-description" class="dialog-description"></p>
+      </div>
+    </dialog>
+
+    <footer class="site-footer">Nhà Đất Mini · Bài tập Triển khai và Quản trị Hệ thống Phần mềm</footer>
+  </body>
+</html>
