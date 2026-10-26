@@ -6,6 +6,9 @@ const mysql = require("mysql2/promise");
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
+const processStartTime = Date.now() / 1000;
+const requestDurationBuckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5];
+const requestStatistics = new Map();
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
@@ -19,6 +22,86 @@ const pool = mysql.createPool({
 });
 
 app.disable("x-powered-by");
+
+app.get("/metrics", (request, response) => {
+  const lines = [
+    "# HELP process_start_time_seconds Start time of the Node.js process since the Unix epoch.",
+    "# TYPE process_start_time_seconds gauge",
+    `process_start_time_seconds ${processStartTime}`,
+    "# HELP process_uptime_seconds Node.js process uptime in seconds.",
+    "# TYPE process_uptime_seconds gauge",
+    `process_uptime_seconds ${process.uptime()}`,
+    "# HELP process_resident_memory_bytes Resident memory size in bytes.",
+    "# TYPE process_resident_memory_bytes gauge",
+    `process_resident_memory_bytes ${process.memoryUsage().rss}`,
+    "# HELP nodejs_heap_size_used_bytes Node.js heap used in bytes.",
+    "# TYPE nodejs_heap_size_used_bytes gauge",
+    `nodejs_heap_size_used_bytes ${process.memoryUsage().heapUsed}`,
+    "# HELP nodejs_heap_size_total_bytes Node.js heap allocated in bytes.",
+    "# TYPE nodejs_heap_size_total_bytes gauge",
+    `nodejs_heap_size_total_bytes ${process.memoryUsage().heapTotal}`,
+    "# HELP process_cpu_seconds_total Total CPU time spent in seconds.",
+    "# TYPE process_cpu_seconds_total counter",
+    `process_cpu_seconds_total{mode="user"} ${process.cpuUsage().user / 1_000_000}`,
+    `process_cpu_seconds_total{mode="system"} ${process.cpuUsage().system / 1_000_000}`,
+    "# HELP http_server_requests_total Total HTTP requests served by Express.",
+    "# TYPE http_server_requests_total counter",
+    "# HELP http_server_request_duration_seconds HTTP request duration in seconds.",
+    "# TYPE http_server_request_duration_seconds histogram"
+  ];
+
+  for (const statistics of requestStatistics.values()) {
+    lines.push(`http_server_requests_total{method="${statistics.method}",route="${statistics.route}",status="${statistics.status}"} ${statistics.count}`);
+
+    let cumulativeCount = 0;
+    for (const bucket of requestDurationBuckets) {
+      cumulativeCount += statistics.buckets.get(bucket);
+      lines.push(`http_server_request_duration_seconds_bucket{method="${statistics.method}",route="${statistics.route}",status="${statistics.status}",le="${bucket}"} ${cumulativeCount}`);
+    }
+
+    lines.push(`http_server_request_duration_seconds_bucket{method="${statistics.method}",route="${statistics.route}",status="${statistics.status}",le="+Inf"} ${statistics.count}`);
+    lines.push(`http_server_request_duration_seconds_sum{method="${statistics.method}",route="${statistics.route}",status="${statistics.status}"} ${statistics.durationSeconds}`);
+    lines.push(`http_server_request_duration_seconds_count{method="${statistics.method}",route="${statistics.route}",status="${statistics.status}"} ${statistics.count}`);
+  }
+
+  response.type("text/plain; version=0.0.4; charset=utf-8").send(`${lines.join("\n")}\n`);
+});
+
+app.use((request, response, next) => {
+  if (request.path === "/metrics") {
+    return next();
+  }
+
+  const startedAt = process.hrtime.bigint();
+  response.once("finish", () => {
+    const durationSeconds = Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
+    const routePath = typeof request.route?.path === "string" ? request.route.path : "unmatched";
+    const key = [request.method, routePath, response.statusCode].join("\u0000");
+    let statistics = requestStatistics.get(key);
+
+    if (!statistics) {
+      statistics = {
+        method: request.method,
+        route: routePath,
+        status: response.statusCode,
+        count: 0,
+        durationSeconds: 0,
+        buckets: new Map(requestDurationBuckets.map((bucket) => [bucket, 0]))
+      };
+      requestStatistics.set(key, statistics);
+    }
+
+    statistics.count += 1;
+    statistics.durationSeconds += durationSeconds;
+    const matchingBucket = requestDurationBuckets.find((bucket) => durationSeconds <= bucket);
+    if (matchingBucket !== undefined) {
+      statistics.buckets.set(matchingBucket, statistics.buckets.get(matchingBucket) + 1);
+    }
+  });
+
+  next();
+});
+
 app.use(express.json({ limit: "10kb" }));
 app.use(express.static(path.join(__dirname, "public")));
 

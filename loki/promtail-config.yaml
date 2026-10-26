@@ -1,0 +1,50 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: tcp://docker-socket-proxy:2375
+        refresh_interval: 5s
+        filters:
+          - name: status
+            values:
+              - running
+          - name: label
+            values:
+              - com.nhadatmini.logs=true
+    relabel_configs:
+      - source_labels:
+          - __meta_docker_container_label_com_docker_compose_service
+        target_label: service_name
+      - source_labels:
+          - __meta_docker_container_name
+        regex: "/(.*)"
+        replacement: "$1"
+        target_label: container
+      - source_labels:
+          - __meta_docker_container_log_stream
+        target_label: stream
+      - source_labels:
+          - __meta_docker_container_id
+        target_label: __path__
+        replacement: /var/lib/docker/containers/$1/$1-json.log
+      - target_label: job
+        replacement: docker
+      - source_labels:
+          - service_name
+        regex: "web|nginx|db|phpmyadmin|prometheus|grafana|loki|promtail|docker-socket-proxy|nginx-exporter|blackbox-exporter"
+        action: keep
+    pipeline_stages:
+      - docker: {}
+      - drop:
+          older_than: 168h
+          drop_counter_reason: older_than_retention
